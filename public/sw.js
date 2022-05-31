@@ -1,7 +1,7 @@
 importScripts('/src/js/idb.js');
 importScripts('/src/js/db.js');
 
-const CACHE_VERSION = 4;
+const CACHE_VERSION = 1;
 const CURRENT_STATIC_CACHE = 'static-v'+CACHE_VERSION;
 const CURRENT_DYNAMIC_CACHE = 'dynamic-v'+CACHE_VERSION;
 
@@ -92,5 +92,40 @@ self.addEventListener('fetch', event => {
                     }
                 })
         )
+    }
+})
+
+self.addEventListener('sync', event => {
+    console.log('service worker --> background syncing ...', event);
+    if(event.tag === 'sync-new-post') {
+        console.log('service worker --> syncing new posts ...');
+        event.waitUntil(
+            readAllData('sync-posts')
+                .then( dataArray => {
+                    for(let data of dataArray) {
+                        console.log('data from IndexedDB', data);
+                        const formData = new FormData();
+                        formData.append('title', data.title);
+                        formData.append('location', data.location);
+                        formData.append('file', data.image_id);
+
+                        console.log('formData', formData)
+                    
+                        fetch('http://localhost:3000/posts', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then( response => {
+                            console.log('Data sent to backend ...', response);
+                            if(response.ok) {
+                                deleteOneData('sync-posts', data.id)
+                            }
+                        })
+                        .catch( err => {
+                            console.log('Error while sending data to backend ...', err);
+                        })
+                    }
+                })
+        );
     }
 })
